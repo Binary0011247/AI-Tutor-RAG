@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1100" viewBox="0 0 800 1100">
+  <rect width="800" height="1100" fill="#fbfaf6"/>
+  <rect x="48" y="40" width="704" height="1020" fill="#fff" stroke="#e4e2dc"/>
+  <text x="64" y="72" font-family="Georgia, serif" font-size="14" fill="#888">Answer Sheet - Page 2</text>
+  <g stroke="#eef0f5" stroke-width="1">
+    <line x1="64" y1="140" x2="736" y2="140"/>
+    <line x1="64" y1="170" x2="736" y2="170"/>
+    <line x1="64" y1="200" x2="736" y2="200"/>
+    <line x1="64" y1="230" x2="736" y2="230"/>
+    <line x1="64" y1="260" x2="736" y2="260"/>
+    <line x1="64" y1="290" x2="736" y2="290"/>
+    <line x1="64" y1="340" x2="736" y2="340"/>
+    <line x1="64" y1="370" x2="736" y2="370"/>
+    <line x1="64" y1="400" x2="736" y2="400"/>
+    <line x1="64" y1="460" x2="736" y2="460"/>
+    <line x1="64" y1="490" x2="736" y2="490"/>
+    <line x1="64" y1="520" x2="736" y2="520"/>
+  </g>
+  <text x="72" y="138" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">dKE = 0.5 * 2 * (169 - 16) = 153 J.</text>
+  <text x="72" y="168" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">Work = 6 * 25.5 = 153 J. So work equals dKE.</text>
+  <text x="72" y="198" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">Final speed = 13 m/s.</text>
+  <text x="72" y="320" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#1a2744">Q12 (i)</text>
+  <text x="72" y="358" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">Ohm's law: V = IR if temperature is constant.</text>
+</svg>

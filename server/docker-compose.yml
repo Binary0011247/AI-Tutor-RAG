@@ -1,0 +1,13 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      - PORT=4000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ALLOWED_ORIGIN=http://localhost:3000
+    command: npm run dev

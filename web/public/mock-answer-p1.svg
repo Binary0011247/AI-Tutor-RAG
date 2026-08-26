@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1100" viewBox="0 0 800 1100">
+  <rect width="800" height="1100" fill="#fbfaf6"/>
+  <rect x="48" y="40" width="704" height="1020" fill="#fff" stroke="#e4e2dc"/>
+  <text x="64" y="72" font-family="Georgia, serif" font-size="14" fill="#888">Answer Sheet - Page 1</text>
+  <g stroke="#eef0f5" stroke-width="1">
+    <line x1="64" y1="160" x2="736" y2="160"/>
+    <line x1="64" y1="190" x2="736" y2="190"/>
+    <line x1="64" y1="220" x2="736" y2="220"/>
+    <line x1="64" y1="250" x2="736" y2="250"/>
+    <line x1="64" y1="280" x2="736" y2="280"/>
+    <line x1="64" y1="310" x2="736" y2="310"/>
+    <line x1="64" y1="360" x2="736" y2="360"/>
+    <line x1="64" y1="390" x2="736" y2="390"/>
+    <line x1="64" y1="440" x2="736" y2="440"/>
+    <line x1="64" y1="470" x2="736" y2="470"/>
+    <line x1="64" y1="500" x2="736" y2="500"/>
+    <line x1="64" y1="560" x2="736" y2="560"/>
+    <line x1="64" y1="590" x2="736" y2="590"/>
+    <line x1="64" y1="620" x2="736" y2="620"/>
+    <line x1="64" y1="650" x2="736" y2="650"/>
+    <line x1="64" y1="680" x2="736" y2="680"/>
+    <line x1="64" y1="710" x2="736" y2="710"/>
+    <line x1="64" y1="740" x2="736" y2="740"/>
+    <line x1="64" y1="770" x2="736" y2="770"/>
+    <line x1="64" y1="800" x2="736" y2="800"/>
+    <line x1="64" y1="830" x2="736" y2="830"/>
+  </g>
+  <text x="72" y="130" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#1a2744">Q2</text>
+  <text x="72" y="168" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">Osmosis is the movement of water from a dilute</text>
+  <text x="72" y="198" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">solution to a concentrated one through a membrane.</text>
+  <text x="72" y="228" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">Example: raisins swelling in water.</text>
+  <text x="72" y="340" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#1a2744">Q11 (a)</text>
+  <text x="72" y="378" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">KE = 1/2 m v^2 = 0.5 * 2.0 * 16 = 16 J</text>
+  <text x="72" y="530" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#1a2744">Q11 (b)</text>
+  <text x="72" y="568" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">F = 6.0 N, t = 3.0 s. a = F/m = 3 m/s^2.</text>
+  <text x="72" y="598" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">v = u + at = 4 + 9 = 13 m/s. Work = Fs.</text>
+  <text x="72" y="628" font-family="Georgia, serif" font-size="16" font-style="italic" fill="#1a2744">This equals dKE as shown on the next page.</text>
+</svg>
