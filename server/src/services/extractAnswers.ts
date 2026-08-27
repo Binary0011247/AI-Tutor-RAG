@@ -83,52 +83,78 @@ function parseBbox(raw: unknown): [number, number, number, number] | null {
 function promptForBatch(
   batchStart: number,
   batchCount: number,
-  pageCount: number
+  pageCount: number,
+  contextPage: number | null
 ): string {
-  const indices = Array.from(
+  const newIndices = Array.from(
     { length: batchCount },
     (_, i) => batchStart + i
   );
-  const imageLines = indices.map(
-    (page, i) =>
-      `Image ${i + 1} is 0-based page index ${page} (printed page ${page + 1} of ${pageCount}).`
-  );
+  const imageLines: string[] = [];
+  let imageNumber = 1;
+  if (contextPage != null) {
+    imageLines.push(
+      `Image ${imageNumber} is 0-based page index ${contextPage} (printed page ${contextPage + 1} of ${pageCount}).`
+    );
+    imageNumber += 1;
+  }
+  for (const page of newIndices) {
+    imageLines.push(
+      `Image ${imageNumber} is 0-based page index ${page} (printed page ${page + 1} of ${pageCount}).`
+    );
+    imageNumber += 1;
+  }
 
-  return [
-    `You will receive ${batchCount} images, in order, from a student's handwritten answer sheet.`,
+  const imageCount = imageLines.length;
+  const lines = [
+    `You will receive ${imageCount} images, in order, from a student's handwritten answer sheet.`,
     ...imageLines,
-    "Process each image in order and return ONE combined JSON array of every distinct handwritten answer block on these pages.",
+  ];
+
+  if (contextPage != null) {
+    lines.push(
+      "The first image in this batch was already processed in a previous call and included only for continuity context — do not re-emit blocks for it, only use it to correctly detect if the first NEW page's content is a continuation of an answer from that context page."
+    );
+  }
+
+  lines.push(
+    "Process each NEW page in order and return ONE combined JSON array of every distinct handwritten answer block on the NEW pages only.",
     "Each object must include: page, detectedLabel, transcript, bbox, confidence.",
-    "`page` is the 0-based page index of the image this block appears on — it must be one of: " +
-      indices.join(", ") +
+    "`page` is the 0-based page index of the NEW image this block appears on — it must be one of: " +
+      newIndices.join(", ") +
       ".",
     "Rules:",
     '- `detectedLabel`: the question label the student wrote (e.g. "Q11 (a)", "2b", "Question 3") exactly as written. Set to null if you cannot confidently tell which question this responds to — do not guess.',
-    '- `detectedLabel` must be the literal string "__continuation__" if this block is clearly a continuation of the answer from the previous page (no new question label, content picks up mid-sentence or mid-working).',
+    '- `detectedLabel` must be the literal string "__continuation__" if this block is clearly a continuation of the answer from the previous page (no new question label, content picks up mid-sentence or mid-working). Use the context page (when provided) to decide this for the first NEW page.',
     "- `transcript`: your best-effort transcription of the handwritten text in this block, including working, equations, and crossings-out if readable.",
     "- `bbox`: [xMin, yMin, xMax, yMax] as integers normalized 0-1000, tight around just the handwritten answer content — not the whole page, not surrounding blank space, not printed headers/lines unless the writing sits on them. Coordinates are relative to THAT page image.",
     "- `confidence`: a number from 0 to 1 reflecting confidence in both the transcription and the label reading. Lower for messy or faint handwriting.",
     "- One object per distinct answer block. A labelled sub-part (e.g. 11(a) vs 11(b)) is a separate block.",
     "- Order blocks by page, then top-to-bottom as they appear (left column before right if multi-column).",
     "- Ignore purely printed page furniture (margins, ruling, page numbers) that has no handwriting.",
-    "- If none of these pages have handwritten answers, return [].",
-  ].join("\n");
+    "- If none of the NEW pages have handwritten answers, return []."
+  );
+
+  return lines.join("\n");
 }
 
 function resolvePage(
   raw: unknown,
   batchStart: number,
-  batchCount: number
+  batchCount: number,
+  contextPage: number | null
 ): number | null {
   if (batchCount === 1) {
     const n = Number(raw);
     if (!Number.isFinite(n)) return batchStart;
     const i = Math.trunc(n);
+    if (contextPage != null && i === contextPage) return null;
     if (i === batchStart || i === 0) return batchStart;
   }
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
   const i = Math.trunc(n);
+  if (contextPage != null && i === contextPage) return null;
   if (i >= batchStart && i < batchStart + batchCount) return i;
   if (i >= 0 && i < batchCount) return batchStart + i;
   return null;
@@ -163,17 +189,30 @@ export async function extractAnswers(
 
   for (let batchStart = 0; batchStart < pageImages.length; batchStart += BATCH_SIZE) {
     const batch = pageImages.slice(batchStart, batchStart + BATCH_SIZE);
-    const buffers = batch.filter((buffer): buffer is Buffer => Boolean(buffer));
-    if (buffers.length === 0) continue;
+    const newBuffers = batch.filter((buffer): buffer is Buffer => Boolean(buffer));
+    if (newBuffers.length === 0) continue;
 
-    const pageLabel = `${batchStart + 1}-${batchStart + buffers.length}`;
+    const contextPage = batchStart > 0 ? batchStart - 1 : null;
+    const contextBuffer =
+      contextPage != null ? pageImages[contextPage] : undefined;
+    const buffers =
+      contextBuffer != null ? [contextBuffer, ...newBuffers] : newBuffers;
+
+    const pageLabel = `${batchStart + 1}-${batchStart + newBuffers.length}`;
 
     try {
       console.log(
-        `[gemini] stage=extracting_answers pages=${pageLabel} hash=${hashPrefix}`
+        `[gemini] stage=extracting_answers pages=${pageLabel}` +
+          (contextPage != null ? ` contextPage=${contextPage + 1}` : "") +
+          ` hash=${hashPrefix}`
       );
       const raw = await callGeminiJSON(
-        promptForBatch(batchStart, buffers.length, pageImages.length),
+        promptForBatch(
+          batchStart,
+          newBuffers.length,
+          pageImages.length,
+          contextBuffer != null ? contextPage : null
+        ),
         buffers.map((buffer) => ({
           data: buffer.toString("base64"),
           mimeType: imageMimeType(buffer),
@@ -187,7 +226,8 @@ export async function extractAnswers(
             ? (entry as Record<string, unknown>).page
             : undefined,
           batchStart,
-          buffers.length
+          newBuffers.length,
+          contextBuffer != null ? contextPage : null
         );
         if (page == null) continue;
         const block = toBlock(entry, page);
