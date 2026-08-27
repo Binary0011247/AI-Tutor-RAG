@@ -17,7 +17,7 @@ const NOT_FOUND_FALLBACKS = [
 export const DAILY_QUOTA_MESSAGE =
   "Daily API quota reached, try again after midnight PT or switch API keys";
 const MAX_ATTEMPTS = 3;
-const ATTEMPT_TIMEOUT_MS = 20_000;
+const ATTEMPT_TIMEOUT_MS = 30_000;
 const BACKOFF_MS = [1_000, 2_000, 4_000] as const;
 /** Daily-quota hints can be hours; don't park a job that long. */
 const MAX_RETRY_AFTER_MS = 120_000;
@@ -297,9 +297,17 @@ export async function callGeminiJSON(
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
-        const result = await geminiGate.run(() =>
-          model.generateContent(parts, { timeout: ATTEMPT_TIMEOUT_MS })
-        );
+        const result = await geminiGate.run(async () => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
+          try {
+            return await model.generateContent(parts, {
+              signal: controller.signal,
+            });
+          } finally {
+            clearTimeout(timer);
+          }
+        });
         if (preferredModel !== modelName) {
           preferredModel = modelName;
           console.log(`gemini: using model ${modelName}`);
