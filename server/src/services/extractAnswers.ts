@@ -14,6 +14,8 @@ const SCHEMA = `[
 ]`;
 
 const BATCH_SIZE = 4;
+/** Four handwriting page images often exceed the default 30s network timeout. */
+const ANSWER_ATTEMPT_TIMEOUT_MS = 90_000;
 
 function imageMimeType(buffer: Buffer): string {
   if (buffer[0] === 0x89 && buffer[1] === 0x50) return "image/png";
@@ -118,16 +120,19 @@ function promptForBatch(
   }
 
   lines.push(
-    "Process each image in order and return ONE combined JSON array of every distinct handwritten answer block on these pages.",
+    "Process each image in order and return ONE combined JSON array of distinct student answer blocks on these pages.",
     "Each object must include: page, detectedLabel, transcript, bbox, confidence.",
     "`page` is the 0-based page index of the image this block appears on — it must be one of: " +
       indices.join(", ") +
       ".",
     "Rules:",
-    '- `detectedLabel`: the question label the student wrote (e.g. "Q11 (a)", "2b", "Question 3") exactly as written. Set to null if you cannot confidently tell which question this responds to — do not guess.',
+    "- Emit a block for each distinct answer attempt: labelled answers, and unlabeled writing that is clearly a solution or working. If the question number is unreadable, still emit that answer block with detectedLabel null.",
+    "- Do not emit a block for stray marks, underlines, ticks, page numbers, printed ruling, or tiny isolated scribbles that are not an answer.",
+    '- `detectedLabel`: the question label the student wrote (e.g. "Q11 (a)", "2b", "Question 3") exactly as written. Set to null if you cannot confidently tell which question this responds to — do not guess, but still return the answer block.',
+    "- If the student labelled a sub-part ((a), (b), (i), (ii)), `detectedLabel` must include that sub-part. Do not emit a bare parent number such as \"11\" when \"11(a)\" / \"11(b)\" is visible.",
     '- `detectedLabel` must be the literal string "__continuation__" if this block is clearly a continuation of the answer from the previous page (no new question label, content picks up mid-sentence or mid-working).',
     "- `transcript`: your best-effort transcription of the handwritten text in this block, including working, equations, and crossings-out if readable.",
-    "- `bbox`: [xMin, yMin, xMax, yMax] as integers normalized 0-1000, tight around just the handwritten answer content — not the whole page, not surrounding blank space, not printed headers/lines unless the writing sits on them. Coordinates are relative to THAT page image.",
+    "- `bbox`: [xMin, yMin, xMax, yMax] as integers normalized 0-1000, tight around just the handwritten content — not the whole page, not surrounding blank space. Coordinates are relative to THAT page image. Always use a valid non-zero-area bbox so the block is kept.",
     "- `confidence`: a number from 0 to 1 reflecting confidence in both the transcription and the label reading. Lower for messy or faint handwriting.",
     "- One object per distinct answer block. A labelled sub-part (e.g. 11(a) vs 11(b)) is a separate block.",
     "- Order blocks by page, then top-to-bottom as they appear (left column before right if multi-column).",
@@ -177,12 +182,34 @@ function toBlock(raw: unknown, page: number): RawAnswerBlock | null {
   };
 }
 
+function logAnswerAccounting(
+  hashPrefix: string,
+  blockCount: number,
+  skipped: Array<{ pages: string; message: string }>
+): void {
+  console.log(
+    `[extractAnswers] rawAnswerBlocks=${blockCount} hash=${hashPrefix}`
+  );
+  if (skipped.length > 0) {
+    console.warn(
+      `[extractAnswers] batchRetriesExhausted=true skippedBatches=${skipped.length} pages=${skipped
+        .map((item) => item.pages)
+        .join(",")} hash=${hashPrefix}`
+    );
+  } else {
+    console.log(
+      `[extractAnswers] batchRetriesExhausted=false hash=${hashPrefix}`
+    );
+  }
+}
+
 export async function extractAnswers(
   pageImages: Buffer[],
   hashPrefix = "unknown"
 ): Promise<{ blocks: RawAnswerBlock[]; warnings: string[] }> {
   const blocks: RawAnswerBlock[] = [];
   const warnings: string[] = [];
+  const skipped: Array<{ pages: string; message: string }> = [];
   let prior: PriorBatchTail | null = null;
 
   for (let batchStart = 0; batchStart < pageImages.length; batchStart += BATCH_SIZE) {
@@ -202,7 +229,8 @@ export async function extractAnswers(
           data: buffer.toString("base64"),
           mimeType: imageMimeType(buffer),
         })),
-        SCHEMA
+        SCHEMA,
+        ANSWER_ATTEMPT_TIMEOUT_MS
       );
 
       const batchBlocks: RawAnswerBlock[] = [];
@@ -221,16 +249,21 @@ export async function extractAnswers(
 
       blocks.push(...batchBlocks);
 
-      const last = batchBlocks[batchBlocks.length - 1];
-      prior = last
+      const ordered = [...batchBlocks].sort((a, b) => a.page - b.page);
+      const lastInBatch = ordered[ordered.length - 1];
+      prior = lastInBatch
         ? {
-            label: last.detectedLabel ?? "null",
-            ending: lastWords(last.transcript, 40),
+            label: lastInBatch.detectedLabel ?? "null",
+            ending: lastWords(lastInBatch.transcript, 40),
           }
         : null;
     } catch (err) {
-      if (err instanceof GeminiDailyQuotaError) throw err;
+      if (err instanceof GeminiDailyQuotaError) {
+        logAnswerAccounting(hashPrefix, blocks.length, skipped);
+        throw err;
+      }
       const message = err instanceof Error ? err.message : String(err);
+      skipped.push({ pages: pageLabel, message });
       warnings.push(
         `Answer extraction failed on pages ${pageLabel}: ${message}`
       );
@@ -238,5 +271,16 @@ export async function extractAnswers(
   }
 
   blocks.sort((a, b) => a.page - b.page);
+  logAnswerAccounting(hashPrefix, blocks.length, skipped);
+
+  if (skipped.length > 0 && blocks.length === 0) {
+    const detail = skipped
+      .map((item) => `pages ${item.pages}: ${item.message}`)
+      .join("; ");
+    throw new Error(
+      `Answer extraction failed after all retries (${detail}).`
+    );
+  }
+
   return { blocks, warnings };
 }

@@ -131,9 +131,12 @@ async function processJob(
   const cacheKey = hashUploadPair(questionPaper.buffer, answerSheet.buffer);
   const hashPrefix = cacheKey.slice(0, 8);
   console.log(
-    `[cache] job start jobId=${jobId} pairSha256=${cacheKey}`
+    `[cache] job start jobId=${jobId} pairSha256=${cacheKey} source=file-bytes-only`
   );
-  logJobEvent(jobId, "job_start", { pairSha256: cacheKey });
+  logJobEvent(jobId, "job_start", {
+    pairSha256: cacheKey,
+    cacheKeySource: "sha256(questionPaperBytes + NUL + answerSheetBytes)",
+  });
 
   try {
     updateJob(jobId, { status: "converting", progress: 15 });
@@ -256,11 +259,24 @@ async function processJob(
     const { blocks: rawAnswerBlocks, warnings: answerWarnings } =
       answersExtract.value;
     result.rawAnswerBlocks = rawAnswerBlocks;
+    console.log(
+      `[extractAnswers] jobId=${jobId} rawAnswerBlocks=${rawAnswerBlocks.length} pairSha256=${cacheKey}`
+    );
     if (answerWarnings.length) {
       const current = getJob(jobId);
       updateJob(jobId, {
         warnings: [...(current?.warnings ?? []), ...answerWarnings],
       });
+    }
+    if (
+      rawAnswerBlocks.length === 0 &&
+      answerSheetPages.length > 0 &&
+      answerWarnings.length > 0
+    ) {
+      throw new Error(
+        answerWarnings[0] ??
+          "No answers could be extracted from the answer sheet."
+      );
     }
     updateJob(jobId, { result, progress: 80 });
 
@@ -306,14 +322,23 @@ async function processJob(
 
     updateJob(jobId, { status: "done", progress: 100, result });
     const finished = getJob(jobId);
-    setCachedPipeline(cacheKey, {
-      result,
-      pages: {
-        questionPaper: questionPaperPages,
-        answerSheet: answerSheetPages,
-      },
-      warnings: finished?.warnings ?? [],
-    });
+    const hasPartialExtraction = (finished?.warnings ?? []).some((warning) =>
+      warning.startsWith("Answer extraction failed on pages")
+    );
+    if (!hasPartialExtraction) {
+      setCachedPipeline(cacheKey, {
+        result,
+        pages: {
+          questionPaper: questionPaperPages,
+          answerSheet: answerSheetPages,
+        },
+        warnings: finished?.warnings ?? [],
+      });
+    } else {
+      console.log(
+        `[cache] skip store jobId=${jobId} prefix=${hashPrefix} — partial answer extraction`
+      );
+    }
     logJobDuration(jobId, "complete", Date.now() - pipelineStarted, stageMs);
   } catch (err) {
     const message = errorMessage(err);

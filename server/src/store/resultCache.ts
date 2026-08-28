@@ -10,6 +10,7 @@ export interface CachedPipeline {
 
 const cache = new Map<string, CachedPipeline>();
 
+/** sha256 of question-paper bytes + NUL + answer-sheet bytes. No timestamps or IDs. */
 export function hashUploadPair(
   questionPaper: Buffer,
   answerSheet: Buffer

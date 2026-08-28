@@ -6,9 +6,41 @@ import {
   QuestionList,
   type MappingSelection,
 } from "./QuestionList";
-import type { PipelineResult } from "@/types";
+import type { AnswerRegion, MappedAnswer, PipelineResult } from "@/types";
 
 export type MobilePane = "questions" | "sheet";
+
+function regionKey(region: AnswerRegion): string {
+  return `${region.page}:${region.bbox.join(",")}`;
+}
+
+/** Last-write-wins in a Map drops extra pages; union every answer for the same question. */
+function unionAnswersForQuestion(answers: MappedAnswer[]): MappedAnswer | undefined {
+  if (answers.length === 0) return undefined;
+  const first = answers[0];
+  if (!first) return undefined;
+
+  const seen = new Set<string>();
+  const regions: AnswerRegion[] = [];
+  for (const answer of answers) {
+    for (const region of answer.regions) {
+      const key = regionKey(region);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      regions.push(region);
+    }
+  }
+  regions.sort((a, b) => a.page - b.page || a.bbox[1] - b.bbox[1]);
+
+  return {
+    ...first,
+    regions,
+    transcript: answers
+      .map((answer) => answer.transcript)
+      .filter((part) => part.length > 0)
+      .join(" "),
+  };
+}
 
 export function defaultMappingSelection(
   result: PipelineResult
@@ -37,14 +69,21 @@ export function MappingScreen({
   onMobilePaneChange: (pane: MobilePane) => void;
 }) {
   const answersByQuestion = useMemo(() => {
-    const map = new Map<string, (typeof result.answers)[number]>();
+    const grouped = new Map<string, MappedAnswer[]>();
     for (const answer of result.answers) {
-      if (answer.questionId) map.set(answer.questionId, answer);
+      if (!answer.questionId) continue;
+      const list = grouped.get(answer.questionId) ?? [];
+      list.push(answer);
+      grouped.set(answer.questionId, list);
+    }
+
+    const map = new Map<string, MappedAnswer>();
+    for (const [questionId, list] of grouped) {
+      const merged = unionAnswersForQuestion(list);
+      if (merged) map.set(questionId, merged);
     }
     return map;
   }, [result.answers]);
-
-  const unansweredIds = result.unansweredQuestionIds;
 
   const viewer = useMemo(() => {
     if (!selected) {
@@ -58,10 +97,10 @@ export function MappingScreen({
 
     if (selected.kind === "question") {
       const question = result.questions.find((q) => q.id === selected.id);
-      const isUnanswered = unansweredIds.includes(selected.id);
       const answer = answersByQuestion.get(selected.id);
+      const isUnanswered = !answer || answer.regions.length === 0;
       return {
-        regions: isUnanswered ? [] : answer?.regions ?? [],
+        regions: isUnanswered || !answer ? [] : answer.regions,
         unanswered: isUnanswered,
         questionNumber: question?.number,
         questionSubpart: question?.subpart,
@@ -80,7 +119,6 @@ export function MappingScreen({
     result.answers,
     result.questions,
     selected,
-    unansweredIds,
   ]);
 
   const pageCount = Math.max(result.answerSheetPages.length, 1);

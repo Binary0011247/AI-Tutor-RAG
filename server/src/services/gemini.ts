@@ -261,7 +261,8 @@ const geminiGate = new Gate(MAX_CONCURRENCY);
 export async function callGeminiJSON(
   prompt: string,
   imageParts: { data: string; mimeType: string }[],
-  schemaDescription: string
+  schemaDescription: string,
+  timeoutMs: number = ATTEMPT_TIMEOUT_MS
 ): Promise<any> {
   const parts: Part[] = [
     {
@@ -299,7 +300,7 @@ export async function callGeminiJSON(
       try {
         const result = await geminiGate.run(async () => {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
           try {
             return await model.generateContent(parts, {
               signal: controller.signal,

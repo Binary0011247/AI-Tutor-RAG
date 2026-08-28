@@ -39,12 +39,16 @@ export function AnswerSheetViewer({
   pageSrcs?: string[];
 }) {
   const [page, setPage] = useState(0);
+  const [browseAll, setBrowseAll] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [display, setDisplay] = useState({ width: 0, height: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
 
   const regionPages = useMemo(
-    () => [...new Set(selectedRegions.map((region) => region.page))],
+    () =>
+      [...new Set(selectedRegions.map((region) => region.page))].sort(
+        (a, b) => a - b
+      ),
     [selectedRegions]
   );
 
@@ -52,10 +56,16 @@ export function AnswerSheetViewer({
     .map((region) => `${region.page}:${region.bbox.join(",")}`)
     .join("|");
 
+  const highlightNav = regionPages.length > 0 && !browseAll && !unanswered;
+  const navPages = highlightNav ? regionPages : null;
+  const navIndex = navPages ? navPages.indexOf(page) : page;
+  const navCount = navPages ? navPages.length : Math.max(pageCount, 1);
+
   useEffect(() => {
-    const first = selectedRegions[0];
-    if (first) setPage(first.page);
-  }, [regionsKey, selectedRegions]);
+    setBrowseAll(false);
+    const first = regionPages[0];
+    if (first != null) setPage(first);
+  }, [regionsKey]);
 
   useEffect(() => {
     const image = imageRef.current;
@@ -80,13 +90,22 @@ export function AnswerSheetViewer({
     questionNumber !== undefined
       ? highlightTag(questionNumber, questionSubpart)
       : "Q";
-  const regionIndex = selectedRegions.findIndex((region) => region.page === page);
-  const multiPage = selectedRegions.length > 1;
 
-  const goToRegion = (index: number) => {
-    const region = selectedRegions[index];
-    if (region) setPage(region.page);
+  const goNav = (direction: -1 | 1) => {
+    if (navPages) {
+      const next = navPages[navIndex + direction];
+      if (next != null) setPage(next);
+      return;
+    }
+    setPage((value) =>
+      Math.min(Math.max(pageCount - 1, 0), Math.max(0, value + direction))
+    );
   };
+
+  const prevDisabled = highlightNav ? navIndex <= 0 : page <= 0;
+  const nextDisabled = highlightNav
+    ? navIndex < 0 || navIndex >= navCount - 1
+    : page >= pageCount - 1;
 
   return (
     <section className="flex h-full min-h-0 flex-col rounded-2xl border border-line bg-card">
@@ -119,37 +138,65 @@ export function AnswerSheetViewer({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              aria-label="Previous page"
+              aria-label={highlightNav ? "Previous highlighted page" : "Previous page"}
               className="rounded-md p-1 hover:bg-page disabled:opacity-40"
-              disabled={page <= 0}
-              onClick={() => setPage((value) => Math.max(0, value - 1))}
+              disabled={prevDisabled}
+              onClick={() => goNav(-1)}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="flex items-center gap-1.5 tabular-nums">
               Page {page + 1} of {Math.max(pageCount, 1)}
+              {highlightNav && navCount > 1 ? (
+                <span className="text-muted">
+                  · {navIndex + 1}/{navCount}
+                </span>
+              ) : null}
               {regionPages.length > 0
                 ? regionPages.map((regionPage) => (
-                    <span
+                    <button
                       key={regionPage}
+                      type="button"
+                      aria-label={`Go to highlighted page ${regionPage + 1}`}
                       className={`h-1.5 w-1.5 rounded-full ${
                         regionPage === page ? "bg-highlight" : "bg-highlight/40"
                       }`}
                       title={`Highlight on page ${regionPage + 1}`}
+                      onClick={() => {
+                        setBrowseAll(false);
+                        setPage(regionPage);
+                      }}
                     />
                   ))
                 : null}
             </span>
             <button
               type="button"
-              aria-label="Next page"
+              aria-label={highlightNav ? "Next highlighted page" : "Next page"}
               className="rounded-md p-1 hover:bg-page disabled:opacity-40"
-              disabled={page >= pageCount - 1}
-              onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}
+              disabled={nextDisabled}
+              onClick={() => goNav(1)}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+          {regionPages.length > 0 && !unanswered ? (
+            <button
+              type="button"
+              className="rounded-md px-2 py-1 text-xs font-medium text-muted hover:bg-page hover:text-ink"
+              onClick={() => {
+                setBrowseAll((current) => {
+                  const next = !current;
+                  if (!next && regionPages[0] != null && !regionPages.includes(page)) {
+                    setPage(regionPages[0]);
+                  }
+                  return next;
+                });
+              }}
+            >
+              {browseAll ? "Highlights" : "All pages"}
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -193,32 +240,6 @@ export function AnswerSheetViewer({
           </div>
         )}
       </div>
-
-      {multiPage && !unanswered ? (
-        <div className="flex items-center justify-end gap-2 border-t border-line px-4 py-2 text-xs text-muted">
-          <button
-            type="button"
-            className="rounded px-1.5 py-0.5 hover:bg-page disabled:opacity-40"
-            disabled={regionIndex <= 0}
-            onClick={() => goToRegion(Math.max(0, regionIndex - 1))}
-          >
-            Prev region
-          </button>
-          <span className="tabular-nums">
-            {Math.max(regionIndex, 0) + 1}/{selectedRegions.length} pages
-          </span>
-          <button
-            type="button"
-            className="rounded px-1.5 py-0.5 hover:bg-page disabled:opacity-40"
-            disabled={regionIndex < 0 || regionIndex >= selectedRegions.length - 1}
-            onClick={() =>
-              goToRegion(Math.min(selectedRegions.length - 1, regionIndex + 1))
-            }
-          >
-            Next region
-          </button>
-        </div>
-      ) : null}
     </section>
   );
 }
