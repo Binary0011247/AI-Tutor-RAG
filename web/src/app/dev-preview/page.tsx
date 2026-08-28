@@ -6,6 +6,25 @@ import { QuestionCard } from "@/components/QuestionCard";
 import { ScorePill } from "@/components/ScorePill";
 import type { MappedAnswer, Question, QuestionGrade } from "@/types";
 
+type GradeOverride = { score?: number; feedback?: string };
+
+function applyOverride(
+  grade: QuestionGrade | undefined,
+  override: GradeOverride | undefined
+): QuestionGrade | undefined {
+  if (!grade) return undefined;
+  if (!override) return grade;
+  const score = override.score ?? grade.score;
+  const feedback = override.feedback ?? grade.feedback;
+  let correct = grade.correct;
+  if (override.score != null) {
+    if (score <= 0) correct = false;
+    else if (score >= grade.maxScore) correct = true;
+    else correct = "partial";
+  }
+  return { ...grade, score, feedback, correct };
+}
+
 const QUESTIONS: Question[] = [
   {
     id: "q1",
@@ -104,6 +123,7 @@ export default function DevPreviewPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     q2: true,
   });
+  const [overrides, setOverrides] = useState<Record<string, GradeOverride>>({});
 
   const selected = QUESTIONS.find((question) => question.id === selectedId);
   const selectedAnswer = ANSWERS.find((answer) => answer.questionId === selectedId);
@@ -113,6 +133,25 @@ export default function DevPreviewPage() {
     () => (unanswered ? [] : selectedAnswer?.regions ?? []),
     [selectedAnswer, unanswered]
   );
+
+  const totals = useMemo(() => {
+    let totalScore = 0;
+    let maxScore = 0;
+    for (const question of QUESTIONS) {
+      const grade = applyOverride(GRADES[question.id], overrides[question.id]);
+      if (!grade) continue;
+      totalScore += grade.score;
+      maxScore += grade.maxScore;
+    }
+    return { totalScore, maxScore };
+  }, [overrides]);
+
+  const patchOverride = (questionId: string, patch: GradeOverride) => {
+    setOverrides((current) => ({
+      ...current,
+      [questionId]: { ...current[questionId], ...patch },
+    }));
+  };
 
   return (
     <main className="min-h-screen bg-page px-4 py-6 text-ink sm:px-6">
@@ -131,6 +170,7 @@ export default function DevPreviewPage() {
           <ScorePill score={2} maxScore={2} />
           <ScorePill score={3} maxScore={5} />
           <ScorePill score={0} maxScore={2} />
+          <ScorePill score={1} maxScore={2} edited />
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(320px,2fr)_minmax(360px,3fr)] lg:items-start">
@@ -138,28 +178,48 @@ export default function DevPreviewPage() {
             <h2 className="text-base font-bold">
               Extracted Questions (from question paper)
             </h2>
-            {QUESTIONS.map((question) => (
-              <QuestionCard
-                key={question.id}
-                question={question}
-                grade={GRADES[question.id]}
-                selected={question.id === selectedId}
-                expanded={Boolean(expanded[question.id])}
-                onSelect={() => {
-                  setSelectedId(question.id);
-                  setExpanded((current) => ({
-                    ...current,
-                    [question.id]: true,
-                  }));
-                }}
-                onToggleExpand={() =>
-                  setExpanded((current) => ({
-                    ...current,
-                    [question.id]: !current[question.id],
-                  }))
-                }
-              />
-            ))}
+            <p className="text-sm text-muted">
+              {totals.totalScore}/{totals.maxScore} · Scored {totals.totalScore}/
+              {totals.maxScore}
+            </p>
+            {QUESTIONS.map((question) => {
+              const original = GRADES[question.id];
+              const override = overrides[question.id];
+              const grade = applyOverride(original, override);
+              return (
+                <QuestionCard
+                  key={question.id}
+                  question={question}
+                  grade={grade}
+                  edited={
+                    override?.score != null && original?.score !== override.score
+                  }
+                  feedbackEdited={
+                    override?.feedback != null &&
+                    original?.feedback !== override.feedback
+                  }
+                  selected={question.id === selectedId}
+                  expanded={Boolean(expanded[question.id])}
+                  onSelect={() => {
+                    setSelectedId(question.id);
+                    setExpanded((current) => ({
+                      ...current,
+                      [question.id]: true,
+                    }));
+                  }}
+                  onToggleExpand={() =>
+                    setExpanded((current) => ({
+                      ...current,
+                      [question.id]: !current[question.id],
+                    }))
+                  }
+                  onScoreChange={(score) => patchOverride(question.id, { score })}
+                  onFeedbackChange={(feedback) =>
+                    patchOverride(question.id, { feedback })
+                  }
+                />
+              );
+            })}
           </div>
 
           <div className="h-[min(80vh,840px)]">

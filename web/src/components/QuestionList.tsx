@@ -1,12 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { QuestionCard } from "./QuestionCard";
-import type { GradingResult, MappedAnswer, Question } from "@/types";
+import type { GradingResult, MappedAnswer, Question, QuestionGrade } from "@/types";
 
 export type MappingSelection =
   | { kind: "question"; id: string }
   | { kind: "unmapped"; id: string };
+
+type GradeOverride = {
+  score?: number;
+  feedback?: string;
+};
+
+function applyOverride(
+  grade: QuestionGrade | undefined,
+  override: GradeOverride | undefined
+): QuestionGrade | undefined {
+  if (!grade) return undefined;
+  if (!override) return grade;
+  const score = override.score ?? grade.score;
+  const feedback = override.feedback ?? grade.feedback;
+  let correct = grade.correct;
+  if (override.score != null) {
+    if (score <= 0) correct = false;
+    else if (score >= grade.maxScore) correct = true;
+    else correct = "partial";
+  }
+  return { ...grade, score, feedback, correct };
+}
+
+function headerSummary(
+  totalScore: number,
+  maxScore: number,
+  overallFeedback?: string
+): string {
+  const line = `${totalScore}/${maxScore} · Scored ${totalScore}/${maxScore}`;
+  const extra = overallFeedback
+    ?.replace(/^Scored\s+\d+\s*\/\s*\d+\.?\s*/i, "")
+    .trim();
+  return extra ? `${line}. ${extra}` : line;
+}
 
 export function QuestionList({
   questions,
@@ -28,6 +62,7 @@ export function QuestionList({
     .filter((answer): answer is MappedAnswer => Boolean(answer));
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [overrides, setOverrides] = useState<Record<string, GradeOverride>>({});
 
   const allExpanded =
     questions.length > 0 && questions.every((question) => expanded[question.id]);
@@ -39,6 +74,26 @@ export function QuestionList({
     );
   };
 
+  const patchOverride = (questionId: string, patch: GradeOverride) => {
+    setOverrides((current) => ({
+      ...current,
+      [questionId]: { ...current[questionId], ...patch },
+    }));
+  };
+
+  const totals = useMemo(() => {
+    if (!grading) return null;
+    let totalScore = 0;
+    for (const question of questions) {
+      const grade = applyOverride(
+        grading.perQuestion[question.id],
+        overrides[question.id]
+      );
+      if (grade) totalScore += grade.score;
+    }
+    return { totalScore, maxScore: grading.maxScore };
+  }, [grading, questions, overrides]);
+
   return (
     <section className="flex h-full min-h-0 flex-col">
       <header className="mb-3 flex items-start justify-between gap-3">
@@ -46,10 +101,13 @@ export function QuestionList({
           <h2 className="text-base font-bold text-ink">
             Extracted Questions (from question paper)
           </h2>
-          {grading ? (
+          {totals ? (
             <p className="mt-1 line-clamp-2 text-sm text-muted">
-              {grading.totalScore}/{grading.maxScore}
-              {grading.overallFeedback ? ` · ${grading.overallFeedback}` : ""}
+              {headerSummary(
+                totals.totalScore,
+                totals.maxScore,
+                grading?.overallFeedback
+              )}
             </p>
           ) : null}
         </div>
@@ -65,27 +123,47 @@ export function QuestionList({
       </header>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
-        {questions.map((question) => (
-          <QuestionCard
-            key={question.id}
-            question={question}
-            grade={grading?.perQuestion[question.id]}
-            selected={
-              selected?.kind === "question" && selected.id === question.id
-            }
-            expanded={Boolean(expanded[question.id])}
-            onSelect={() => {
-              onSelect({ kind: "question", id: question.id });
-              setExpanded((current) => ({ ...current, [question.id]: true }));
-            }}
-            onToggleExpand={() =>
-              setExpanded((current) => ({
-                ...current,
-                [question.id]: !current[question.id],
-              }))
-            }
-          />
-        ))}
+        {questions.map((question) => {
+          const original = grading?.perQuestion[question.id];
+          const override = overrides[question.id];
+          const grade = applyOverride(original, override);
+          return (
+            <QuestionCard
+              key={question.id}
+              question={question}
+              grade={grade}
+              edited={override?.score != null && original?.score !== override.score}
+              feedbackEdited={
+                override?.feedback != null &&
+                original?.feedback !== override.feedback
+              }
+              selected={
+                selected?.kind === "question" && selected.id === question.id
+              }
+              expanded={Boolean(expanded[question.id])}
+              onSelect={() => {
+                onSelect({ kind: "question", id: question.id });
+                setExpanded((current) => ({ ...current, [question.id]: true }));
+              }}
+              onToggleExpand={() =>
+                setExpanded((current) => ({
+                  ...current,
+                  [question.id]: !current[question.id],
+                }))
+              }
+              onScoreChange={
+                original
+                  ? (score) => patchOverride(question.id, { score })
+                  : undefined
+              }
+              onFeedbackChange={
+                original
+                  ? (feedback) => patchOverride(question.id, { feedback })
+                  : undefined
+              }
+            />
+          );
+        })}
 
         {unmatched.length > 0 ? (
           <div className="pt-4">
