@@ -51,9 +51,19 @@ AI grading is a **first pass**. The teacher remains in control: they can confirm
 - Unanswered questions flagged (score `0`, “Not answered.”)
 - Unmapped handwriting in its own panel — never silently dropped
 - Green bounding-box highlight on the sheet, with a `Qn` tag
-- Multi-page answers stitched when a block continues onto the next page
+- **Multi-page answers** — a working that spills onto the next page is one answer, highlighted on each page
 - Per-question score, correct / partial / incorrect, and AI feedback
 - **Teacher override** of score and feedback (human in the loop — additive, not a replacement for the AI pass)
+
+### Multi-page answers
+
+This is a hard requirement in the brief, and it is implemented end to end — not a stub.
+
+When the student keeps writing with **no new question label**, extraction marks that block `__continuation__`. Mapping **stitches** it onto the previous answer (same `questionId`, extra `regions[]` with their own page + bbox). Unlabeled writing is **not** treated as a continuation, so a stray paragraph does not glue onto the wrong question.
+
+On the sheet, the teacher gets a page stepper for that answer and a green box on **each** page the working occupies. Several questions on one page still map independently; the viewer can also browse all pages without highlights.
+
+Verified on real sheets (including the 6-page answer PDF in the screenshots): select a question, jump to the right page, box the handwriting, step if it continues.
 
 ---
 
@@ -108,7 +118,7 @@ Teacher                  Next.js (Vercel)                 Express (Render)      
 | **Grading** | Mapped pairs are scored (see below). Unanswered questions get `0`. Unmapped answers are not graded. If grading fails, mapping and highlights still show. |
 | **Review** | Left: question cards + unmapped list. Right: answer sheet. Click a question to jump to that page and draw the highlight. The teacher may then override score or feedback. |
 
-Jobs are stored **in memory** (about 1 hour, or until the API process restarts). Identical file pairs are cached by SHA-256 so a demo re-upload does not re-run Gemini. Teacher overrides live on that job; they are **not** written into the file-pair cache, so a fresh upload of the same PDFs still starts from the AI grade.
+Jobs live in memory on the API. Same file pair can skip a second Gemini run (see below). Teacher overrides stay on that job only.
 
 ---
 
@@ -219,6 +229,16 @@ flowchart LR
 | `/web` | App Router UI only. Talks to the API over HTTP. | [Vercel](https://ai-tutor-rag.vercel.app/) |
 | `/server` | Upload, rasterize, Gemini calls, mapping, grading, in-memory jobs. | Render (`https://ai-tutor-rag.onrender.com`) |
 
+### Engineering notes
+
+A few choices that affect a live demo. This is not a distributed-systems write-up.
+
+- **Two hosts.** Vision jobs outlive a Vercel function timeout, so the UI and the Gemini worker are separate. That is the only reason the live app is two URLs.
+- **File-pair cache.** SHA-256 of the two uploaded files. Re-uploading the **same** PDFs returns the cached pipeline and does not call Gemini again. Teacher overrides are **not** stored in that cache.
+- **In-memory jobs.** No database, as the brief allows. A job lasts about an hour or until the API process restarts.
+- **Rate limit, retries, health.** 10 uploads per IP per minute; Gemini retries on per-minute 429s; the upload page pings `/health` so a sleeping Render instance is more likely to be awake.
+- **Docker.** Optional, local API only (`docker compose up`). Production is Vercel + Render, not a container fleet.
+
 ---
 
 ## Tech stack
@@ -230,7 +250,6 @@ flowchart LR
 | AI | Google Gemini (`gemini-3.1-flash-lite` by default), JSON-mode vision |
 | PDF / images | `pdf-to-img`, `pdf-lib`, `sharp` |
 | Mapping helpers | `fastest-levenshtein` (limited fuzzy; never for question-like keys) |
-| Local API | Docker Compose optional (`docker-compose.yml`) |
 
 ---
 
@@ -265,6 +284,8 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+To run only the API in Docker: `docker compose up` from the repo root (needs `server/.env`). The web app still runs with `npm run dev` in `/web`.
 
 ### Environment
 
