@@ -134,7 +134,7 @@ git clone https://github.com/Binary0011247/AI-Tutor-RAG.git
 cd AI-Tutor-RAG
 ```
 
-### 1. API
+### 1. Server
 
 ```bash
 cd server
@@ -230,6 +230,3 @@ UI follows the VedaAI hiring-assignment Figma (upload, extracting, mapping). Acc
 
 ---
 
-## License
-
-Private assignment submission unless you add a license file. See the questions below if you want this repo public under MIT (or similar).
