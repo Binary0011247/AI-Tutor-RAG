@@ -48,6 +48,26 @@ export function UploadScreen() {
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
+  useEffect(() => {
+    const base = apiBase();
+    if (!base) return;
+
+    const wake = () => {
+      if (document.visibilityState === "hidden") return;
+      void fetch(`${base}/health`, { method: "GET", cache: "no-store" }).catch(
+        () => undefined
+      );
+    };
+
+    wake();
+    const intervalId = window.setInterval(wake, 8 * 60 * 1000);
+    document.addEventListener("visibilitychange", wake);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", wake);
+    };
+  }, []);
+
   const ready = Boolean(questionPaper && answerSheet) && !submitting;
 
   const startMapping = async () => {
