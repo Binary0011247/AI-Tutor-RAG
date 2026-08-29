@@ -66,7 +66,7 @@ function VedaWordmark({ compact }: { compact: boolean }) {
         />
       </span>
       {!compact ? (
-        <span className="truncate text-[21px] font-bold tracking-tight text-ink">
+        <span className="truncate font-heading text-[21px] font-extrabold tracking-tight text-ink">
           VedaAI
         </span>
       ) : (

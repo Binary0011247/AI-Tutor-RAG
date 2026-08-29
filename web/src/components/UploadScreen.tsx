@@ -109,7 +109,7 @@ export function UploadScreen() {
       <div className="w-full max-w-3xl text-center">
         <h1
           key={headingKey}
-          className={`text-[1.65rem] font-bold leading-snug tracking-tight sm:text-4xl sm:leading-tight ${
+          className={`font-heading text-[1.65rem] font-extrabold leading-snug tracking-tight sm:text-4xl sm:leading-tight ${
             headingKey > 0 ? "upload-heading" : "opacity-0"
           }`}
         >
