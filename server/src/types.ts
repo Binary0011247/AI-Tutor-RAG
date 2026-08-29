@@ -16,6 +16,8 @@ export interface Job {
   error?: string;
   warnings: string[]; // partial-failure messages, never silent
   result?: PipelineResult;
+  /** Teacher score/feedback edits. In-memory only, same TTL as the job. */
+  gradeOverrides?: Record<string, GradeOverride>;
 }
 
 export interface Question {
@@ -68,4 +70,9 @@ export interface GradingResult {
   overallFeedback: string;
   totalScore: number;
   maxScore: number;
+}
+
+export interface GradeOverride {
+  score?: number;
+  feedback?: string;
 }

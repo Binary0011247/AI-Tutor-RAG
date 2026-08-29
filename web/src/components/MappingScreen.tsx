@@ -6,7 +6,7 @@ import {
   QuestionList,
   type MappingSelection,
 } from "./QuestionList";
-import type { AnswerRegion, MappedAnswer, PipelineResult } from "@/types";
+import type { AnswerRegion, GradeOverride, MappedAnswer, PipelineResult } from "@/types";
 
 export type MobilePane = "questions" | "sheet";
 
@@ -56,6 +56,7 @@ export function defaultMappingSelection(
 export function MappingScreen({
   jobId,
   result,
+  gradeOverrides,
   selected,
   mobilePane,
   onSelect,
@@ -63,6 +64,7 @@ export function MappingScreen({
 }: {
   jobId: string;
   result: PipelineResult;
+  gradeOverrides?: Record<string, GradeOverride>;
   selected: MappingSelection | null;
   mobilePane: MobilePane;
   onSelect: (selection: MappingSelection) => void;
@@ -155,10 +157,12 @@ export function MappingScreen({
           } md:flex`}
         >
           <QuestionList
+            jobId={jobId}
             questions={result.questions}
             answers={result.answers}
             unmatchedAnswerIds={result.unmatchedAnswerIds}
             grading={result.grading}
+            initialOverrides={gradeOverrides}
             selected={selected}
             onSelect={onSelect}
           />

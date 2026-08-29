@@ -106,6 +106,7 @@ export default function ReviewPage({
     <MappingScreen
       jobId={jobId}
       result={job.result}
+      gradeOverrides={job.gradeOverrides}
       selected={selection}
       mobilePane={mobilePane}
       onMobilePaneChange={setMobilePane}

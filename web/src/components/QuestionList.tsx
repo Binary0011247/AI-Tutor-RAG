@@ -1,17 +1,39 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { QuestionCard } from "./QuestionCard";
-import type { GradingResult, MappedAnswer, Question, QuestionGrade } from "@/types";
+import type {
+  GradeOverride,
+  GradingResult,
+  MappedAnswer,
+  Question,
+  QuestionGrade,
+} from "@/types";
 
 export type MappingSelection =
   | { kind: "question"; id: string }
   | { kind: "unmapped"; id: string };
 
-type GradeOverride = {
-  score?: number;
-  feedback?: string;
-};
+function apiBase(): string {
+  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+}
+
+async function persistOverride(
+  jobId: string,
+  questionId: string,
+  patch: GradeOverride
+): Promise<void> {
+  try {
+    await fetch(`${apiBase()}/api/jobs/${jobId}/grade-overrides`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ questionId, ...patch }),
+      keepalive: true,
+    });
+  } catch {
+    // Job may have expired; the UI still shows the in-session edit.
+  }
+}
 
 function applyOverride(
   grade: QuestionGrade | undefined,
@@ -43,17 +65,21 @@ function headerSummary(
 }
 
 export function QuestionList({
+  jobId,
   questions,
   answers,
   unmatchedAnswerIds,
   grading,
+  initialOverrides,
   selected,
   onSelect,
 }: {
+  jobId?: string;
   questions: Question[];
   answers: MappedAnswer[];
   unmatchedAnswerIds: string[];
   grading?: GradingResult;
+  initialOverrides?: Record<string, GradeOverride>;
   selected: MappingSelection | null;
   onSelect: (selection: MappingSelection) => void;
 }) {
@@ -62,7 +88,35 @@ export function QuestionList({
     .filter((answer): answer is MappedAnswer => Boolean(answer));
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [overrides, setOverrides] = useState<Record<string, GradeOverride>>({});
+  const [overrides, setOverrides] = useState<Record<string, GradeOverride>>(
+    () => initialOverrides ?? {}
+  );
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const overridesRef = useRef(overrides);
+  overridesRef.current = overrides;
+
+  useEffect(() => {
+    return () => {
+      for (const [questionId, timer] of Object.entries(saveTimers.current)) {
+        clearTimeout(timer);
+        const merged = overridesRef.current[questionId];
+        if (jobId && merged) {
+          void persistOverride(jobId, questionId, merged);
+        }
+      }
+    };
+  }, [jobId]);
+
+  const queuePersist = (questionId: string, delayMs: number) => {
+    if (!jobId) return;
+    const existing = saveTimers.current[questionId];
+    if (existing) clearTimeout(existing);
+    saveTimers.current[questionId] = setTimeout(() => {
+      const merged = overridesRef.current[questionId];
+      if (!merged) return;
+      void persistOverride(jobId, questionId, merged);
+    }, delayMs);
+  };
 
   const allExpanded =
     questions.length > 0 && questions.every((question) => expanded[question.id]);
@@ -75,10 +129,15 @@ export function QuestionList({
   };
 
   const patchOverride = (questionId: string, patch: GradeOverride) => {
-    setOverrides((current) => ({
-      ...current,
-      [questionId]: { ...current[questionId], ...patch },
-    }));
+    setOverrides((current) => {
+      const next = {
+        ...current,
+        [questionId]: { ...current[questionId], ...patch },
+      };
+      overridesRef.current = next;
+      return next;
+    });
+    queuePersist(questionId, patch.score != null ? 0 : 400);
   };
 
   const totals = useMemo(() => {

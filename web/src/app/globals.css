@@ -27,3 +27,58 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
+
+@keyframes upload-heading-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes upload-highlight-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes upload-flourish-in {
+  from {
+    stroke-dashoffset: 140;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.upload-heading {
+  animation: upload-heading-in 0.55s ease-out both;
+}
+
+.upload-heading-highlight {
+  transform-origin: left center;
+  animation: upload-highlight-in 0.7s 0.15s ease-out both;
+}
+
+.upload-heading-flourish {
+  stroke-dasharray: 140;
+  stroke-dashoffset: 140;
+  animation: upload-flourish-in 0.65s 0.45s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-heading,
+  .upload-heading-highlight,
+  .upload-heading-flourish {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    stroke-dashoffset: 0;
+  }
+}

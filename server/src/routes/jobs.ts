@@ -18,7 +18,7 @@ import {
   hashUploadPair,
   setCachedPipeline,
 } from "../store/resultCache";
-import type { PipelineResult } from "../types";
+import type { GradeOverride, PipelineResult } from "../types";
 
 const JOB_TTL_MS = Number(process.env.JOB_TTL_MS) || 3_600_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -414,6 +414,68 @@ router.post(
 
 router.get("/:id/pages/questionPaper/:n", servePage("questionPaper"));
 router.get("/:id/pages/answerSheet/:n", servePage("answerSheet"));
+
+router.patch("/:id/grade-overrides", (req, res) => {
+  const id = routeParam(req.params.id);
+  if (!id) {
+    res.status(400).json({ error: "Job id is required" });
+    return;
+  }
+
+  const job = getJob(id);
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  if (job.status !== "done" || !job.result) {
+    res.status(409).json({ error: "Job is not ready for grade edits" });
+    return;
+  }
+
+  const body = req.body as {
+    questionId?: unknown;
+    score?: unknown;
+    feedback?: unknown;
+  };
+  const questionId =
+    typeof body.questionId === "string" ? body.questionId.trim() : "";
+  if (!questionId) {
+    res.status(400).json({ error: "questionId is required" });
+    return;
+  }
+  const question = job.result.questions.find((item) => item.id === questionId);
+  if (!question) {
+    res.status(400).json({ error: "Unknown questionId" });
+    return;
+  }
+
+  const original = job.result.grading?.perQuestion[questionId];
+  const patch: GradeOverride = { ...(job.gradeOverrides?.[questionId] ?? {}) };
+
+  if (body.score !== undefined) {
+    const raw = Number(body.score);
+    if (!Number.isFinite(raw)) {
+      res.status(400).json({ error: "score must be a number" });
+      return;
+    }
+    const maxScore = original?.maxScore ?? Math.max(0, Math.round(raw));
+    patch.score = Math.min(maxScore, Math.max(0, Math.round(raw)));
+  }
+  if (body.feedback !== undefined) {
+    if (typeof body.feedback !== "string") {
+      res.status(400).json({ error: "feedback must be a string" });
+      return;
+    }
+    patch.feedback = body.feedback;
+  }
+
+  const gradeOverrides = {
+    ...(job.gradeOverrides ?? {}),
+    [questionId]: patch,
+  };
+  const updated = updateJob(id, { gradeOverrides });
+  res.json({ gradeOverrides: updated.gradeOverrides });
+});
 
 router.get("/:id", (req, res) => {
   const id = routeParam(req.params.id);

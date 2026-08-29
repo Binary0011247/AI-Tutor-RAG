@@ -21,6 +21,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+const COMING_SOON = "Coming soon";
+
 const NAV = [
   { href: "/", label: "Home", icon: Home },
   { href: "#classroom", label: "My Classroom", icon: LayoutGrid },
@@ -28,6 +30,25 @@ const NAV = [
   { href: "/exams", label: "Exams", icon: FileText, active: true },
   { href: "#library", label: "My Library", icon: BookOpen },
 ] as const;
+
+function ComingSoonTip({
+  side = "right",
+}: {
+  side?: "right" | "bottom";
+}) {
+  const position =
+    side === "bottom"
+      ? "top-full left-1/2 mt-2 -translate-x-1/2"
+      : "left-full top-1/2 ml-2 -translate-y-1/2";
+  return (
+    <span
+      role="tooltip"
+      className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs font-medium text-white shadow-sm transition-opacity invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${position}`}
+    >
+      {COMING_SOON}
+    </span>
+  );
+}
 
 function VedaWordmark({ compact }: { compact: boolean }) {
   return (
@@ -118,7 +139,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className={`shrink-0 ${compact ? "mt-1 px-2" : "mt-6 px-3"}`}>
         <button
           type="button"
-          className={`flex items-center rounded-full text-white ${
+          aria-label={`AI Teacher's Toolkit (${COMING_SOON.toLowerCase()})`}
+          className={`group relative flex items-center rounded-full text-white ${
             compact
               ? "mx-auto h-10 w-10 justify-center bg-accent"
               : "w-full gap-2 border border-accent/80 bg-ink px-3 py-2.5 shadow-[0_0_0_1px_rgba(232,115,74,0.35)]"
@@ -132,6 +154,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ) : (
             <span className="sr-only">AI Teacher&apos;s Toolkit</span>
           )}
+          <ComingSoonTip side="right" />
         </button>
       </div>
 
@@ -155,10 +178,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           if (item.href.startsWith("#")) {
             return (
-              <span key={item.label} className={className}>
+              <button
+                key={item.label}
+                type="button"
+                aria-label={`${item.label} (${COMING_SOON.toLowerCase()})`}
+                className={`group relative ${className}`}
+              >
                 <Icon className="h-4 w-4 shrink-0" />
                 {!compact ? item.label : <span className="sr-only">{item.label}</span>}
-              </span>
+                <ComingSoonTip />
+              </button>
             );
           }
 
@@ -175,15 +204,24 @@ export function AppShell({ children }: { children: ReactNode }) {
           );
         })}
         {!compact ? (
-          <span className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted">
+          <button
+            type="button"
+            aria-label={`Settings (${COMING_SOON.toLowerCase()})`}
+            className="group relative mt-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted hover:bg-line/70 hover:text-ink"
+          >
             <Settings className="h-4 w-4 shrink-0" />
             Settings
-          </span>
+            <ComingSoonTip />
+          </button>
         ) : (
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl text-muted">
+          <button
+            type="button"
+            aria-label={`Settings (${COMING_SOON.toLowerCase()})`}
+            className="group relative flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-line/70 hover:text-ink"
+          >
             <Settings className="h-4 w-4" />
-            <span className="sr-only">Settings</span>
-          </span>
+            <ComingSoonTip />
+          </button>
         )}
       </nav>
 
@@ -206,7 +244,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-[100dvh] bg-page">
       <aside
-        className={`hidden shrink-0 border-r border-line bg-card md:flex md:flex-col ${
+        className={`hidden shrink-0 overflow-visible border-r border-line bg-card md:flex md:flex-col ${
           collapsed ? "w-[72px]" : "w-[240px]"
         }`}
       >
@@ -228,7 +266,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-card px-3 sm:gap-3 sm:px-4">
+        <header className="relative z-20 flex h-14 shrink-0 items-center gap-2 border-b border-line bg-card px-3 sm:gap-3 sm:px-4">
           <button
             type="button"
             aria-label="Back"
@@ -252,30 +290,30 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <button
               type="button"
-              className="hidden h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-line md:flex"
-              aria-label="Help"
+              className="group relative hidden h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-line md:flex"
+              aria-label={`Help (${COMING_SOON.toLowerCase()})`}
             >
               <HelpCircle className="h-4 w-4" />
+              <ComingSoonTip side="bottom" />
             </button>
             <button
               type="button"
-              className="relative flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-line"
-              aria-label="Notifications"
+              className="group relative flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-line"
+              aria-label={`Notifications (${COMING_SOON.toLowerCase()})`}
             >
               <Bell className="h-4 w-4" />
               <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-[#e23d3d]" />
+              <ComingSoonTip side="bottom" />
             </button>
             <button
               type="button"
-              className="hidden h-8 w-8 items-center justify-center rounded-full text-accent hover:bg-line md:flex"
-              aria-label="AI tools"
+              className="group relative hidden h-8 w-8 items-center justify-center rounded-full text-accent hover:bg-line md:flex"
+              aria-label={`AI tools (${COMING_SOON.toLowerCase()})`}
             >
               <Sparkles className="h-4 w-4" />
+              <ComingSoonTip side="bottom" />
             </button>
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 hover:bg-line sm:pr-2"
-            >
+            <div className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 sm:pr-2">
               <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-[#c4ddd2] text-[11px] font-bold text-ink">
                 MR
               </span>
@@ -283,7 +321,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Madhur Rastogi
               </span>
               <ChevronDown className="hidden h-4 w-4 text-muted md:block" />
-            </button>
+            </div>
             <button
               type="button"
               className="flex h-8 w-8 items-center justify-center rounded-md text-ink hover:bg-line md:hidden"

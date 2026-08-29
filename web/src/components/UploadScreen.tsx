@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { UploadDropzone } from "./UploadDropzone";
@@ -37,6 +37,16 @@ export function UploadScreen() {
   const [answerSheet, setAnswerSheet] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [headingKey, setHeadingKey] = useState(0);
+
+  useEffect(() => {
+    setHeadingKey(1);
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setHeadingKey((value) => value + 1);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   const ready = Boolean(questionPaper && answerSheet) && !submitting;
 
@@ -77,10 +87,38 @@ export function UploadScreen() {
   return (
     <main className="flex flex-col items-center bg-page px-4 py-8 text-ink sm:px-6 sm:py-10">
       <div className="w-full max-w-3xl text-center">
-        <h1 className="text-[1.65rem] font-bold leading-snug tracking-tight sm:text-4xl sm:leading-tight">
+        <h1
+          key={headingKey}
+          className={`text-[1.65rem] font-bold leading-snug tracking-tight sm:text-4xl sm:leading-tight ${
+            headingKey > 0 ? "upload-heading" : "opacity-0"
+          }`}
+        >
           Upload{" "}
-          <span className="inline rounded-md bg-[#F6C7B0] px-2 py-0.5 text-accent">
-            Question Paper &amp; Answer Sheets
+          <span className="relative inline-block text-accent">
+            <span
+              className="upload-heading-highlight absolute inset-x-0 inset-y-[0.12em] -z-0 rounded-md bg-[#F6C7B0]"
+              aria-hidden
+            />
+            <span className="relative z-10 px-2 py-0.5">
+              <span className="relative inline-block">
+                Question
+                <svg
+                  className="pointer-events-none absolute top-[0.95em] left-0 h-[0.28em] w-full overflow-visible text-accent"
+                  viewBox="0 0 120 12"
+                  fill="none"
+                  aria-hidden
+                >
+                  <path
+                    className="upload-heading-flourish"
+                    d="M2 8 C 28 14, 52 2, 118 7"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>{" "}
+              Paper &amp; Answer Sheets
+            </span>
           </span>
         </h1>
         <p className="mt-3 text-sm text-muted">Upload both files to get started</p>
