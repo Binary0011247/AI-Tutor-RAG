@@ -13,6 +13,7 @@ import {
   ClipboardList,
   FileText,
   HelpCircle,
+  Home,
   LayoutGrid,
   Menu,
   PanelLeft,
@@ -23,6 +24,7 @@ import {
 const COMING_SOON = "Coming soon";
 
 const NAV = [
+  { href: "/", label: "Home", icon: Home },
   { href: "#classroom", label: "My Classroom", icon: LayoutGrid },
   { href: "#assignments", label: "Assignments", icon: ClipboardList },
   { href: "/", label: "Exams", icon: FileText, active: true },
@@ -79,8 +81,8 @@ function VedaWordmark({ compact }: { compact: boolean }) {
 function SchoolCrest({ compact }: { compact: boolean }) {
   return (
     <div
-      className={`mt-auto flex items-center gap-2.5 rounded-xl border border-line bg-card ${
-        compact ? "justify-center p-2" : "px-2.5 py-2.5"
+      className={`flex items-center gap-2.5 rounded-xl border border-line bg-card ${
+        compact ? "justify-center p-2" : "px-3 py-2.5"
       }`}
     >
       <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-line">
@@ -124,7 +126,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-full min-h-0 flex-col">
       <div
         className={`flex shrink-0 items-center ${
-          compact ? "flex-col gap-2 px-2 pt-3 pb-4" : "gap-1 px-3 pt-5 pb-3"
+          compact ? "flex-col gap-2 px-2 pt-3 pb-4" : "gap-1 px-2 pt-5 pb-3 pl-5"
         }`}
       >
         <div className={compact ? "" : "min-w-0 flex-1"}>
@@ -211,29 +213,28 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           );
         })}
-        {!compact ? (
-          <button
-            type="button"
-            aria-label={`Settings (${COMING_SOON.toLowerCase()})`}
-            className="group relative mt-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted hover:bg-line/70 hover:text-ink"
-          >
-            <Settings className="h-4 w-4 shrink-0" />
-            Settings
-            <ComingSoonTip />
-          </button>
-        ) : (
-          <button
-            type="button"
-            aria-label={`Settings (${COMING_SOON.toLowerCase()})`}
-            className="group relative flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-line/70 hover:text-ink"
-          >
-            <Settings className="h-4 w-4" />
-            <ComingSoonTip />
-          </button>
-        )}
       </nav>
 
-      <div className={`${compact ? "px-2 pb-2" : "px-3 pb-3"}`}>
+      <div
+        className={`${
+          compact
+            ? "flex flex-col items-center px-2 pb-2"
+            : "px-2 pb-3"
+        }`}
+      >
+        <button
+          type="button"
+          aria-label={`Settings (${COMING_SOON.toLowerCase()})`}
+          className={`group relative mb-2 ${
+            compact
+              ? "flex h-10 w-10 items-center justify-center rounded-xl text-muted hover:bg-line/70 hover:text-ink"
+              : "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted hover:bg-line/70 hover:text-ink"
+          }`}
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          {compact ? <span className="sr-only">Settings</span> : "Settings"}
+          <ComingSoonTip />
+        </button>
         <SchoolCrest compact={compact} />
         {compact ? (
           <button
@@ -253,7 +254,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-[100dvh] bg-page">
       <aside
         className={`hidden shrink-0 overflow-visible border-r border-line bg-card md:flex md:flex-col ${
-          collapsed ? "w-[72px]" : "w-[304px]"
+          collapsed ? "w-[72px]" : "w-[280px]"
         }`}
       >
         {sidebar(collapsed)}
@@ -267,7 +268,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label="Close menu"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative z-10 flex h-full w-[304px] flex-col border-r border-line bg-card">
+          <aside className="relative z-10 flex h-full w-[280px] flex-col border-r border-line bg-card">
             {sidebar(false)}
           </aside>
         </div>
