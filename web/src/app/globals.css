@@ -73,6 +73,20 @@ body {
   animation: upload-flourish-in 0.65s 0.45s ease-out both;
 }
 
+@keyframes upload-hero-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.upload-hero-orbit {
+  animation: upload-hero-orbit 28s linear infinite;
+}
+
+.upload-hero-badge {
+  animation: upload-hero-orbit 28s linear infinite reverse;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .upload-heading,
   .upload-heading-highlight,
@@ -81,5 +95,10 @@ body {
     opacity: 1;
     transform: none;
     stroke-dashoffset: 0;
+  }
+
+  .upload-hero-orbit,
+  .upload-hero-badge {
+    animation: none;
   }
 }

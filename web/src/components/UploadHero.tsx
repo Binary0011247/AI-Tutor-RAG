@@ -36,18 +36,20 @@ export function UploadHero() {
           className="object-cover object-[center_18%]"
         />
       </div>
-      <Badge className="top-[4%] left-[12%]">
-        <Clock className="h-3.5 w-3.5" />
-      </Badge>
-      <Badge className="top-[4%] right-[10%]">
-        <MessageCircle className="h-3.5 w-3.5" />
-      </Badge>
-      <Badge className="bottom-[8%] right-[6%]">
-        <CloudUpload className="h-3.5 w-3.5" />
-      </Badge>
-      <Badge className="bottom-[10%] left-[4%]">
-        <Settings className="h-3.5 w-3.5" />
-      </Badge>
+      <div className="upload-hero-orbit pointer-events-none absolute inset-0">
+        <Badge className="upload-hero-badge top-[4%] left-[12%]">
+          <Clock className="h-3.5 w-3.5" />
+        </Badge>
+        <Badge className="upload-hero-badge top-[4%] right-[10%]">
+          <MessageCircle className="h-3.5 w-3.5" />
+        </Badge>
+        <Badge className="upload-hero-badge bottom-[8%] right-[6%]">
+          <CloudUpload className="h-3.5 w-3.5" />
+        </Badge>
+        <Badge className="upload-hero-badge bottom-[10%] left-[4%]">
+          <Settings className="h-3.5 w-3.5" />
+        </Badge>
+      </div>
     </div>
   );
 }

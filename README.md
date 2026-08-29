@@ -10,10 +10,22 @@ A teacher uploads a **question paper** and one **student answer sheet**. The app
 [![Gemini](https://img.shields.io/badge/AI-Gemini%203.1%20Flash%20Lite-4285F4?style=flat-square)](https://ai.google.dev/)
 
 <p align="center">
-  <img src="docs/screenshots/upload.png" alt="VedaAI upload screen — question paper and answer sheet dropzones" width="960" />
+  <img src="docs/screenshots/upload.png" alt="Upload screen — question paper and answer sheet dropzones, with four icons orbiting the teacher illustration" width="960" />
 </p>
 
-<p align="center"><em>Upload both files, then Start Mapping. The review screen shows questions beside the sheet; selecting a question highlights the written answer.</em></p>
+<p align="center"><em>Upload both files, then Start Mapping. The four coral badges around the illustration orbit the avatar (clock, chat, settings, cloud upload).</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/mapping.png" alt="Mapping screen — selected question with green highlight on the handwritten sheet" width="960" />
+</p>
+
+<p align="center"><em>Select a question on the left. The matching handwriting is boxed in green on the sheet, tagged Q.n.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/override.png" alt="Expanded question with score stepper and editable AI feedback — teacher override" width="960" />
+</p>
+
+<p align="center"><em>Human in the loop: the AI grade stays visible; the teacher can nudge the score and edit feedback without replacing the extraction.</em></p>
 
 ---
 
@@ -25,23 +37,41 @@ Teachers spend a long time lining up printed questions with messy, out-of-order 
 2. **Where that answer sits on the sheet**
 3. **Which questions were left blank**
 
-Grading and AI feedback are included so the mapping view is usable as a first-pass mark book, not only a locator.
+AI grading is a **first pass**. The teacher remains in control: they can confirm the highlight, change a mark, and rewrite feedback.
 
 ---
 
 ## Features
 
 - Drag-and-drop or click-to-upload for PDF or image files (question paper + one answer sheet)
-- Async job pipeline with real backend stages (convert → extract questions → extract answers → map → grade)
+- Async job pipeline (convert → extract questions → extract answers → map → grade)
 - Sub-parts treated as separate questions (`11 (a)` and `11 (b)` are two rows)
 - Original numbering preserved as printed
 - Answers written out of order still map by label
-- Unanswered questions flagged in the list (score `0`, “Not answered.”)
-- Unmapped handwriting shown in its own panel — never silently dropped
+- Unanswered questions flagged (score `0`, “Not answered.”)
+- Unmapped handwriting in its own panel — never silently dropped
 - Green bounding-box highlight on the sheet, with a `Qn` tag
 - Multi-page answers stitched when a block continues onto the next page
 - Per-question score, correct / partial / incorrect, and AI feedback
-- Teacher can override score and feedback on the job (in-memory, same lifetime as the job)
+- **Teacher override** of score and feedback (human in the loop — additive, not a replacement for the AI pass)
+
+---
+
+## Why Gemini
+
+The assignment allows any model with a free tier. Gemini is the extraction and grading engine because the job is **vision + structured JSON**, not retrieval.
+
+| Need | Why Gemini fits |
+| --- | --- |
+| Printed papers **and** handwriting **and** diagrams | One multimodal model reads page images. No separate OCR pipeline. |
+| Tight answer boxes for highlighting | The model returns `bbox` in a fixed 0–1000 space that the overlay can scale. |
+| Stable pipeline stages | JSON-mode responses (`question[]`, `answer[]`, `grade[]`) parse into typed jobs. |
+| Multi-page papers | Flash Lite is cheap enough to batch pages (questions and answers in groups of four). |
+| Free-tier constraint | Google AI Studio keys work for a hiring demo without standing up GPU infra. |
+
+Default model: **`gemini-3.1-flash-lite`** (`GEMINI_MODEL` to override). RPM 429s retry on the same model; daily quota is not retried — the job fails with a clear message.
+
+This is **not** a RAG retriever. The repo name is historical. Each job looks at the uploaded pages only.
 
 ---
 
@@ -63,22 +93,100 @@ Teacher                  Next.js (Vercel)                 Express (Render)      
    |                            |                                 |  grade mapped pairs ---->|  score + feedback
    |  5. Mapping UI             |<--------------------------------|  status: done            |
    |     click question ------> |  page image + overlay           |                          |
-   |     highlight on sheet     |                                 |                          |
+   |     optional override ---> |  PATCH /grade-overrides         |  store on the job        |
 ```
 
 ### What each stage does
 
 | Stage | What happens |
 | --- | --- |
-| **Upload** | Both files are required. The UI enables **Start Mapping** only when both are present. |
+| **Upload** | Both files are required. **Start Mapping** enables only when both are present. |
 | **Rasterize** | Each PDF page (or image) becomes a page image at a consistent size for vision. |
-| **Question extraction** | Gemini reads the printed paper in page batches. Labelled sub-parts become separate entries. Shared stems are folded into each sub-part so there is no empty “11” row. |
+| **Question extraction** | Gemini reads the printed paper in page batches. Labelled sub-parts become separate entries. Shared stems fold into each sub-part so there is no empty “11” row. |
 | **Answer extraction** | Gemini finds handwriting blocks: detected label, transcript, and a tight `bbox` in 0–1000 coordinates. Continuations across pages use `__continuation__`. |
 | **Mapping** | Normalize labels (`Q11 (a)` / `11a` / `11-a` → same key). Exact match first. Fuzzy match is skipped for question-like keys so `12` never snaps to `11`. Remaining blocks go through one LLM pass; matches below confidence `0.5` stay **unmapped**. Continuations stitch onto the previous block. |
-| **Grading** | Mapped pairs are scored. Unanswered questions get `0` and “Not answered.” Unmapped answers are not graded. If grading fails, mapping and highlights still show. |
-| **Review** | Left: question cards + unmapped list. Right: answer sheet. Click a question (or an unmapped block) to jump to that page and draw the highlight. Multi-region answers can step across pages. |
+| **Grading** | Mapped pairs are scored (see below). Unanswered questions get `0`. Unmapped answers are not graded. If grading fails, mapping and highlights still show. |
+| **Review** | Left: question cards + unmapped list. Right: answer sheet. Click a question to jump to that page and draw the highlight. The teacher may then override score or feedback. |
 
-Jobs are stored **in memory** (about 1 hour, or until the API process restarts). Identical file pairs are cached by SHA-256 so a demo re-upload does not re-run Gemini.
+Jobs are stored **in memory** (about 1 hour, or until the API process restarts). Identical file pairs are cached by SHA-256 so a demo re-upload does not re-run Gemini. Teacher overrides live on that job; they are **not** written into the file-pair cache, so a fresh upload of the same PDFs still starts from the AI grade.
+
+---
+
+## How grading works
+
+Grading is a suggestion the teacher can keep, tweak, or rewrite. It does not certify a mark scheme.
+
+### Who gets a score
+
+| Case | Score | Feedback |
+| --- | --- | --- |
+| Mapped answer | Gemini `score` / `maxScore` | 1–2 sentences on what the student wrote |
+| No matching answer | `0` / inferred `maxScore` | “Not answered.” |
+| Unmapped handwriting | Not graded | Shown under **Unmapped answers** |
+
+Pills: **green** full marks, **amber** partial, **red** zero.
+
+### How `maxScore` is decided
+
+Printed papers rarely expose a machine-readable mark list. The app infers a ceiling from the question text, then lets Gemini propose one. The stored `maxScore` is the model’s value when it is a valid positive number; otherwise the heuristic is used.
+
+```text
+Question text
+      │
+      ▼
+┌─────────────────────────────────────────────────────────┐
+│  Heuristic (always computed; used as fallback)          │
+│                                                         │
+│  5  if the wording looks like a long / constructed      │
+│     item: diagram, draw, explain, show that, calculate, │
+│     hence, derive, compare, discuss, justify            │
+│     — or the text is longer than ~180 characters        │
+│                                                         │
+│  2  if it looks like short recall:                      │
+│     define, state, what is, name, list, give one        │
+│     — or the text is shorter than ~80 characters        │
+│                                                         │
+│  3  everything else                                     │
+└─────────────────────────────────────────────────────────┘
+      │
+      ▼
+Gemini is asked to pick a reasonable maxScore from complexity
+(short recall ~2, multi-part / diagram ~5) and a score ≤ that.
+      │
+      ▼
+Use Gemini’s maxScore if it is a finite number > 0;
+otherwise keep the heuristic.
+```
+
+Example from the screenshots: “Consider the finite automaton…” is a constructed item → ceiling **5**. A one-line “Define finite automata…” can land on **2**. Totals in the header are the sum of per-question scores over those ceilings (e.g. `25/30`).
+
+The teacher cannot raise a mark above that question’s `maxScore`. Overrides are clamped to `0 … maxScore`.
+
+### Human in the loop (override)
+
+The AI pass always runs first. Override is an **add-on**: it does not skip extraction, mapping, or highlighting.
+
+```text
+AI grade + feedback
+        │
+        ▼
+Teacher checks the green box on the sheet
+        │
+        ├── keep the AI mark
+        │
+        └── expand the card
+              ├── click the score pill → type a value, or use + / −
+              └── Edit on AI Feedback → rewrite the note → Done
+                    │
+                    ▼
+              PATCH /api/jobs/:id/grade-overrides
+              pill shows an “Edited” label
+```
+
+- Original Gemini grades stay on the job; the override map is separate.
+- Score changes save immediately; feedback is debounced.
+- Totals in the header recompute from the overridden scores.
+- Same lifetime as the job (about an hour, or until the API restarts). Refresh keeps the edits. Re-uploading the same files does **not** restore teacher edits from cache.
 
 ---
 
@@ -100,6 +208,7 @@ flowchart LR
   Gemini["Gemini 3.1 Flash Lite"]
   Upload -->|POST /api/jobs| Jobs
   Review -->|GET poll + page images| Jobs
+  Review -->|PATCH overrides| Jobs
   Jobs --> Pipe
   Pipe --> Cache
   Pipe --> Gemini
@@ -189,7 +298,7 @@ On Vercel, set this to the public API origin, e.g. `https://ai-tutor-rag.onrende
 | `GET` | `/api/jobs/:id` | Job status, progress, warnings, result when `done`. |
 | `GET` | `/api/jobs/:id/pages/questionPaper/:n` | Rasterized question-paper page. |
 | `GET` | `/api/jobs/:id/pages/answerSheet/:n` | Rasterized answer-sheet page. |
-| `PATCH` | `/api/jobs/:id/grade-overrides` | Teacher score / feedback override (job must be `done`). |
+| `PATCH` | `/api/jobs/:id/grade-overrides` | Teacher score / feedback override (job must be `done`). Does not mutate the original AI grade blob. |
 
 Job status: `queued` → `converting` → `extracting_questions` → `extracting_answers` → `mapping` → `done` \| `error`.
 
@@ -215,7 +324,7 @@ AI-Tutor-RAG/
 
 - One student, one answer sheet per job — no class roster or batch upload.
 - No authentication and no database. Jobs expire with the in-memory TTL (~1 hour) or an API restart.
-- Grading is AI assistance, not a certified mark scheme. Printed max marks are inferred from question wording when the paper does not supply them in a structured way.
+- **Max marks are inferred**, not read from a printed mark scheme. Treat grades as assistive.
 - Mapping is probabilistic. Ambiguous labels stay in **Unmapped answers** rather than being forced onto a question.
 - Poor scans, heavy overwriting, or unreadable handwriting reduce transcript and bbox quality.
 - The Render free instance can cold-start. The upload page pings `/health` so the first job is less likely to hit a sleeping dyno; the first request after idle can still take a short wait.
@@ -226,10 +335,10 @@ AI-Tutor-RAG/
 
 ## Design
 
-UI follows the VedaAI hiring-assignment Figma (upload, extracting, mapping). Accent is coral (`#E8734A`); highlights on the sheet are green rounded outlines with a `Qn` tag.
+UI follows the VedaAI hiring-assignment Figma (upload, extracting, mapping). Accent is coral (`#E8734A`); highlights on the sheet are green rounded outlines with a `Qn` tag. On the upload screen, the four coral badges (clock, chat, settings, cloud) **orbit** the teacher illustration; motion is disabled when the OS requests reduced motion.
 
 ---
 
 ## License
 
-Private assignment submission unless you add a license file. See the questions below if you want this repo public under MIT (or similar).
+Private assignment submission unless you add a license file.
