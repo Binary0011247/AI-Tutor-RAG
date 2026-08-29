@@ -145,25 +145,27 @@ export function UploadScreen() {
 
         <UploadHero />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <UploadDropzone
-            labelLead="Question"
-            labelAccent="Paper"
-            file={questionPaper}
-            onFile={(next) => {
-              setQuestionPaper(next);
-              setError(null);
-            }}
-          />
-          <UploadDropzone
-            labelLead="Answer"
-            labelAccent="Sheet"
-            file={answerSheet}
-            onFile={(next) => {
-              setAnswerSheet(next);
-              setError(null);
-            }}
-          />
+        <div className="rounded-3xl bg-[#e6e4df] p-3 sm:p-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <UploadDropzone
+              labelLead="Question"
+              labelAccent="Paper"
+              file={questionPaper}
+              onFile={(next) => {
+                setQuestionPaper(next);
+                setError(null);
+              }}
+            />
+            <UploadDropzone
+              labelLead="Answer"
+              labelAccent="Sheet"
+              file={answerSheet}
+              onFile={(next) => {
+                setAnswerSheet(next);
+                setError(null);
+              }}
+            />
+          </div>
         </div>
 
         <button

@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "VedaAI",
   description: "Map question papers to student answer sheets",
+  icons: {
+    icon: "/vedaai-logo.avif",
+    apple: "/vedaai-logo.avif",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

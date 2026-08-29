@@ -13,7 +13,6 @@ import {
   ClipboardList,
   FileText,
   HelpCircle,
-  Home,
   LayoutGrid,
   Menu,
   PanelLeft,
@@ -24,10 +23,9 @@ import {
 const COMING_SOON = "Coming soon";
 
 const NAV = [
-  { href: "/", label: "Home", icon: Home },
   { href: "#classroom", label: "My Classroom", icon: LayoutGrid },
   { href: "#assignments", label: "Assignments", icon: ClipboardList },
-  { href: "/exams", label: "Exams", icon: FileText, active: true },
+  { href: "/", label: "Exams", icon: FileText, active: true },
   { href: "#library", label: "My Library", icon: BookOpen },
 ] as const;
 
@@ -57,8 +55,15 @@ function VedaWordmark({ compact }: { compact: boolean }) {
       className={`flex min-w-0 items-center gap-2.5 ${compact ? "flex-col gap-1.5" : ""}`}
       aria-label="VedaAI home"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-ink text-[17px] font-bold leading-none text-white">
-        V
+      <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-[10px] bg-white shadow-sm ring-1 ring-line">
+        <Image
+          src="/vedaai-logo.avif"
+          alt=""
+          fill
+          sizes="36px"
+          className="object-cover"
+          priority
+        />
       </span>
       {!compact ? (
         <span className="truncate text-[21px] font-bold tracking-tight text-ink">
@@ -119,7 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-full min-h-0 flex-col">
       <div
         className={`flex shrink-0 items-center ${
-          compact ? "flex-col gap-2 px-2 pt-3 pb-2" : "gap-1 px-3 pt-5 pb-1"
+          compact ? "flex-col gap-2 px-2 pt-3 pb-4" : "gap-1 px-3 pt-5 pb-3"
         }`}
       >
         <div className={compact ? "" : "min-w-0 flex-1"}>
@@ -136,19 +141,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      <div className={`shrink-0 ${compact ? "mt-1 px-2" : "mt-6 px-3"}`}>
+      <div className={`shrink-0 ${compact ? "mt-4 px-2" : "mt-8 px-3"}`}>
         <button
           type="button"
           aria-label={`AI Teacher's Toolkit (${COMING_SOON.toLowerCase()})`}
           className={`group relative flex items-center rounded-full text-white ${
             compact
-              ? "mx-auto h-10 w-10 justify-center bg-accent"
-              : "w-full gap-2 border border-accent/80 bg-ink px-3 py-2.5 shadow-[0_0_0_1px_rgba(232,115,74,0.35)]"
+              ? "mx-auto h-11 w-11 justify-center bg-accent"
+              : "w-full gap-2.5 border border-accent/80 bg-ink px-4 py-3 shadow-[0_0_0_1px_rgba(232,115,74,0.35)]"
           }`}
         >
-          <Sparkles className="h-4 w-4 shrink-0" />
+          <Sparkles className="h-5 w-5 shrink-0" />
           {!compact ? (
-            <span className="truncate text-sm font-semibold">
+            <span className="truncate text-[15px] font-semibold">
               AI Teacher&apos;s Toolkit
             </span>
           ) : (
@@ -159,8 +164,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <nav
-        className={`mt-2 flex flex-1 flex-col gap-0.5 ${
-          compact ? "items-center px-1.5" : "px-2"
+        className={`flex flex-1 flex-col gap-0.5 ${
+          compact ? "mt-8 items-center px-1.5" : "mt-12 px-2"
         }`}
       >
         {NAV.map((item) => {
@@ -194,9 +199,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           return (
             <Link
               key={item.label}
-              href={item.href === "/exams" ? "/" : item.href}
+              href="/"
               className={className}
-              onClick={() => setMobileOpen(false)}
+              onClick={() => {
+                setMobileOpen(false);
+                setUserCollapsed(null);
+              }}
             >
               <Icon className="h-4 w-4 shrink-0" />
               {!compact ? item.label : <span className="sr-only">{item.label}</span>}
@@ -245,7 +253,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-[100dvh] bg-page">
       <aside
         className={`hidden shrink-0 overflow-visible border-r border-line bg-card md:flex md:flex-col ${
-          collapsed ? "w-[72px]" : "w-[240px]"
+          collapsed ? "w-[72px]" : "w-[304px]"
         }`}
       >
         {sidebar(collapsed)}
@@ -259,7 +267,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label="Close menu"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative z-10 flex h-full w-[240px] flex-col border-r border-line bg-card">
+          <aside className="relative z-10 flex h-full w-[304px] flex-col border-r border-line bg-card">
             {sidebar(false)}
           </aside>
         </div>
