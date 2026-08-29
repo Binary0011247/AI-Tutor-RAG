@@ -206,37 +206,35 @@ export function AnswerSheetViewer({
             <p className="text-sm text-muted">No answer found for this question.</p>
           </div>
         ) : (
-          <div className="flex justify-center">
-            <div
-              className="relative origin-top"
-              style={{ width: `${zoom * 100}%`, maxWidth: "100%" }}
-            >
-              {/* Native img: API page URLs are dynamic and off-origin. */}
-              <img
-                ref={imageRef}
-                src={src}
-                alt={`Answer sheet page ${page + 1}`}
-                className="block h-auto w-full rounded-md bg-white shadow-sm"
-                onLoad={() => {
-                  const image = imageRef.current;
-                  if (image) {
-                    setDisplay({
-                      width: image.clientWidth,
-                      height: image.clientHeight,
-                    });
-                  }
-                }}
+          <div
+            className="relative mx-auto"
+            style={{ width: `${zoom * 100}%` }}
+          >
+            {/* Native img: API page URLs are dynamic and off-origin. */}
+            <img
+              ref={imageRef}
+              src={src}
+              alt={`Answer sheet page ${page + 1}`}
+              className="block h-auto w-full rounded-md bg-white shadow-sm"
+              onLoad={() => {
+                const image = imageRef.current;
+                if (image) {
+                  setDisplay({
+                    width: image.clientWidth,
+                    height: image.clientHeight,
+                  });
+                }
+              }}
+            />
+            {pageRegions.map((region, index) => (
+              <HighlightOverlay
+                key={`${region.page}-${region.bbox.join("-")}-${index}`}
+                bbox={region.bbox}
+                displayedWidth={display.width}
+                displayedHeight={display.height}
+                tag={tag}
               />
-              {pageRegions.map((region, index) => (
-                <HighlightOverlay
-                  key={`${region.page}-${region.bbox.join("-")}-${index}`}
-                  bbox={region.bbox}
-                  displayedWidth={display.width}
-                  displayedHeight={display.height}
-                  tag={tag}
-                />
-              ))}
-            </div>
+            ))}
           </div>
         )}
       </div>
