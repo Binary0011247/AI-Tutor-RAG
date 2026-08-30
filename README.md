@@ -21,12 +21,6 @@ A teacher uploads a **question paper** and one **student answer sheet**. The app
 
 <p align="center"><em>Select a question on the left. The matching handwriting is boxed in green on the sheet, tagged Q.n.</em></p>
 
-<p align="center">
-  <img src="docs/screenshots/override.png" alt="Expanded question with score stepper and editable AI feedback — teacher override" width="960" />
-</p>
-
-<p align="center"><em>Human in the loop: the AI grade stays visible; the teacher can nudge the score and edit feedback without replacing the extraction.</em></p>
-
 ---
 
 ## Why this exists
@@ -37,7 +31,7 @@ Teachers spend a long time lining up printed questions with messy, out-of-order 
 2. **Where that answer sits on the sheet**
 3. **Which questions were left blank**
 
-AI grading is a **first pass**. The teacher remains in control: they can confirm the highlight, change a mark, and rewrite feedback.
+AI grading is a first pass on mapped answers. It is assistive, not a certified mark book.
 
 ---
 
@@ -53,7 +47,6 @@ AI grading is a **first pass**. The teacher remains in control: they can confirm
 - Green bounding-box highlight on the sheet, with a `Qn` tag
 - **Multi-page answers** — a working that spills onto the next page is one answer, highlighted on each page
 - Per-question score, correct / partial / incorrect, and AI feedback
-- **Teacher override** of score and feedback (human in the loop — additive, not a replacement for the AI pass)
 
 ### Multi-page answers
 
@@ -103,7 +96,6 @@ Teacher                  Next.js (Vercel)                 Express (Render)      
    |                            |                                 |  grade mapped pairs ---->|  score + feedback
    |  5. Mapping UI             |<--------------------------------|  status: done            |
    |     click question ------> |  page image + overlay           |                          |
-   |     optional override ---> |  PATCH /grade-overrides         |  store on the job        |
 ```
 
 ### What each stage does
@@ -116,15 +108,15 @@ Teacher                  Next.js (Vercel)                 Express (Render)      
 | **Answer extraction** | Gemini finds handwriting blocks: detected label, transcript, and a tight `bbox` in 0–1000 coordinates. Continuations across pages use `__continuation__`. |
 | **Mapping** | Normalize labels (`Q11 (a)` / `11a` / `11-a` → same key). Exact match first. Fuzzy match is skipped for question-like keys so `12` never snaps to `11`. Remaining blocks go through one LLM pass; matches below confidence `0.5` stay **unmapped**. Continuations stitch onto the previous block. |
 | **Grading** | Mapped pairs are scored (see below). Unanswered questions get `0`. Unmapped answers are not graded. If grading fails, mapping and highlights still show. |
-| **Review** | Left: question cards + unmapped list. Right: answer sheet. Click a question to jump to that page and draw the highlight. The teacher may then override score or feedback. |
+| **Review** | Left: question cards + unmapped list. Right: answer sheet. Click a question to jump to that page and draw the highlight. |
 
-Jobs live in memory on the API. Same file pair can skip a second Gemini run (see below). Teacher overrides stay on that job only.
+Jobs live in memory on the API. Same file pair can skip a second Gemini run (see below).
 
 ---
 
 ## How grading works
 
-Grading is a suggestion the teacher can keep, tweak, or rewrite. It does not certify a mark scheme.
+AI scoring is assistive. It does not certify a mark scheme.
 
 ### Who gets a score
 
@@ -170,34 +162,6 @@ otherwise keep the heuristic.
 
 Example from the screenshots: “Consider the finite automaton…” is a constructed item → ceiling **5**. A one-line “Define finite automata…” can land on **2**. Totals in the header are the sum of per-question scores over those ceilings (e.g. `25/30`).
 
-The teacher cannot raise a mark above that question’s `maxScore`. Overrides are clamped to `0 … maxScore`.
-
-### Human in the loop (override)
-
-The AI pass always runs first. Override is an **add-on**: it does not skip extraction, mapping, or highlighting.
-
-```text
-AI grade + feedback
-        │
-        ▼
-Teacher checks the green box on the sheet
-        │
-        ├── keep the AI mark
-        │
-        └── expand the card
-              ├── click the score pill → type a value, or use + / −
-              └── Edit on AI Feedback → rewrite the note → Done
-                    │
-                    ▼
-              PATCH /api/jobs/:id/grade-overrides
-              pill shows an “Edited” label
-```
-
-- Original Gemini grades stay on the job; the override map is separate.
-- Score changes save immediately; feedback is debounced.
-- Totals in the header recompute from the overridden scores.
-- Same lifetime as the job (about an hour, or until the API restarts). Refresh keeps the edits. Re-uploading the same files does **not** restore teacher edits from cache.
-
 ---
 
 ## Architecture
@@ -218,7 +182,6 @@ flowchart LR
   Gemini["Gemini 3.1 Flash Lite"]
   Upload -->|POST /api/jobs| Jobs
   Review -->|GET poll + page images| Jobs
-  Review -->|PATCH overrides| Jobs
   Jobs --> Pipe
   Pipe --> Cache
   Pipe --> Gemini
@@ -234,7 +197,7 @@ flowchart LR
 A few choices that affect a live demo. This is not a distributed-systems write-up.
 
 - **Two hosts.** Vision jobs outlive a Vercel function timeout, so the UI and the Gemini worker are separate. That is the only reason the live app is two URLs.
-- **File-pair cache.** SHA-256 of the two uploaded files. Re-uploading the **same** PDFs returns the cached pipeline and does not call Gemini again. Teacher overrides are **not** stored in that cache.
+- **File-pair cache.** SHA-256 of the two uploaded files. Re-uploading the **same** PDFs returns the cached pipeline and does not call Gemini again.
 - **In-memory jobs.** No database, as the brief allows. A job lasts about an hour or until the API process restarts.
 - **Rate limit, retries, health.** 10 uploads per IP per minute; Gemini retries on per-minute 429s; the upload page pings `/health` so a sleeping Render instance is more likely to be awake.
 - **Docker.** Optional, local API only (`docker compose up`). Production is Vercel + Render, not a container fleet.
@@ -319,7 +282,6 @@ On Vercel, set this to the public API origin, e.g. `https://ai-tutor-rag.onrende
 | `GET` | `/api/jobs/:id` | Job status, progress, warnings, result when `done`. |
 | `GET` | `/api/jobs/:id/pages/questionPaper/:n` | Rasterized question-paper page. |
 | `GET` | `/api/jobs/:id/pages/answerSheet/:n` | Rasterized answer-sheet page. |
-| `PATCH` | `/api/jobs/:id/grade-overrides` | Teacher score / feedback override (job must be `done`). Does not mutate the original AI grade blob. |
 
 Job status: `queued` → `converting` → `extracting_questions` → `extracting_answers` → `mapping` → `done` \| `error`.
 
@@ -359,4 +321,41 @@ AI-Tutor-RAG/
 UI follows the VedaAI hiring-assignment Figma (upload, extracting, mapping). Accent is coral (`#E8734A`); highlights on the sheet are green rounded outlines with a `Qn` tag. On the upload screen, the four coral badges (clock, chat, settings, cloud) **orbit** the teacher illustration; motion is disabled when the OS requests reduced motion.
 
 ---
+
+## Add-on: teacher override (not in the brief)
+
+The required path is extract → map → highlight → AI grade. Score and feedback **edit** is extra: the teacher can correct a mark without re-running the pipeline. Extraction and highlighting are unchanged.
+
+<p align="center">
+  <img src="docs/screenshots/override.png" alt="Expanded question with score stepper and editable AI feedback — teacher override" width="960" />
+</p>
+
+<p align="center"><em>Click the score pill for + / − (or type a value). Edit on AI Feedback rewrites the note. The pill shows Edited. This does not replace the AI pass.</em></p>
+
+```text
+AI grade + feedback
+        │
+        ▼
+Teacher checks the green box on the sheet
+        │
+        ├── keep the AI mark
+        │
+        └── expand the card
+              ├── click the score pill → type a value, or use + / −
+              └── Edit on AI Feedback → rewrite the note → Done
+                    │
+                    ▼
+              PATCH /api/jobs/:id/grade-overrides
+```
+
+- Scores are clamped to `0 … maxScore`. Header totals follow the edited scores.
+- The original Gemini grade stays on the job; overrides are a separate map.
+- Score saves immediately; feedback is debounced. Same lifetime as the job (~1 hour). Refresh keeps the edits. Re-uploading the same files does **not** restore edits (they are not in the file-pair cache).
+
+---
+
+## License
+
+Private assignment submission unless you add a license file.
+
 
